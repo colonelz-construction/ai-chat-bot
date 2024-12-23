@@ -4,5 +4,5 @@ pymongo
 httpx
 pydantic
 requests
-
+python-dotenv
 
