@@ -1,0 +1,8 @@
+fastapi
+uvicorn
+pymongo
+httpx
+pydantic
+requests
+
+
