@@ -1,0 +1,12 @@
+# Ignore Python bytecode
+__pycache__/
+*.py[cod]
+
+# Ignore virtual environment directories
+venv/
+myenv/
+
+# Ignore environment variable files
+.env
+
+# Ignore other files or directories as needed
