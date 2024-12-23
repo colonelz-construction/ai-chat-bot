@@ -132,7 +132,7 @@ async def query_rag_system(request: QueryRequest):
                     for project in projects
                 ]
                 context['projects'] = project_list
-            else:
+            elif project_name:
                 if task_id == '222222222':
                     if project_name:
                         project_details = db[project_collection].find_one(
@@ -194,7 +194,7 @@ async def query_rag_system(request: QueryRequest):
                         context = {"message": "project not found"}
 
             # Handle leads
-            if lead_id == '111111':
+            elif lead_id == '111111':
                 
                 leads = list(db[lead_collection].find({"org_id": org_id}))
                 lead_list = [
@@ -203,7 +203,7 @@ async def query_rag_system(request: QueryRequest):
                     for lead in leads
                 ]
                 context['leads'] = lead_list
-            else:    
+            elif lead_name:    
                 if task_id == '222222222':
                     if lead_name:
                         lead_details = db[lead_collection].find_one(
