@@ -51,7 +51,7 @@ class QueryRequest(BaseModel):
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=["https://colonelzcrm.prod.initz.run"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
