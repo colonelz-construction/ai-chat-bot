@@ -27,6 +27,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
 MONGODB_URI = os.getenv('MONGODB_URI')
 TOKEN = os.getenv('TOKEN')
 DATABASE_NAME = os.getenv('DATABASE_NAME')
+CORS_URL= os.getenv('CORS_URL')
 
 client = MongoClient(MONGODB_URI)
 db = client[DATABASE_NAME]
@@ -51,7 +52,7 @@ class QueryRequest(BaseModel):
 app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://colonelzcrm.prod.initz.run"],
+    allow_origins=[CORS_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -240,7 +241,7 @@ async def query_rag_system(request: QueryRequest):
 
                         task_details = db[leadtask_collection].find_one(
                             {"lead_id": lead_id, "task_name": taskName})
-                        print(task_details)
+                        
                         if task_details:
                             task_id = task_details.get("task_id")
                             # task_info = {k: v for k, v in task_details.items(
@@ -521,6 +522,7 @@ async def query_rag_system(request: QueryRequest):
                 {"task_name": taskName, "org_id": org_id})
             
             if task_details:
+                task_id = task_details.get('task_id')
                 context['task'] = task_details
         if task_id == '222222222' and project_name ==None and lead_name ==None:
             tasks_details = list(db[opentask_collection].find({"org_id": org_id}))
@@ -606,15 +608,26 @@ async def query_rag_system(request: QueryRequest):
                         if projectId:
                             yield f"data: project_id:{project_id}\n\n"
                             projectId = False
-
+ 
+                    elif lead_id and task_id:
+                        if taskId:
+                            yield f"data: task_id:{task_id}\n\n"
+                            taskId = False
+                        if leadId:
+                            yield f"data: lead_id:{lead_id}\n\n"
+                            leadId = False
                     elif project_id:
                         if projectId:
                             yield f"data: project_id:{project_id}\n\n"
                             projectId = False
-                    if lead_id:
+                    elif lead_id:
                         if leadId:
                             yield f"data: lead_id:{lead_id}\n\n"
                             leadId = False
+                    elif task_id:
+                        if taskId:
+                            yield f"data: task_id:{task_id}\n\n"
+                            taskId = False
 
         return StreamingResponse(event_generator(project_id, lead_id, task_id), media_type="text/event-stream")
 
