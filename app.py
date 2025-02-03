@@ -47,6 +47,13 @@ class QueryRequest(BaseModel):
     question: str
     org_id: str
     user_id: str
+    
+    
+    
+class mailRequest(BaseModel):
+    email_info: str
+        
+    
 
 
 app = FastAPI()
@@ -648,7 +655,60 @@ def check_mongo_connection():
         print(str(e))
         return False
 
+@app.post("/mail-gen")
+async def mail_gen(request: mailRequest):
+    try:
+    
+    # Your code here
+                initializ_url = 'https://colonelz.prod.devai.initz.run/initializ/v1/ai/chat'
+                headers = {
+                    'Content-Type': 'application/json',
+                    'Authorization': f'Bearer {TOKEN}'
+                }
+                data = {
 
+                    "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": """
+                            Welcome to the Email Template Generator! To help create an accurate email, please provide the following: 1) Email Type (e.g., Formal, Informal, Request, Apology), 2) Recipient's Role (e.g., Manager, Customer, Client), 3) Purpose of the email (e.g., Confirming an appointment, Asking for information), 4) Key Points/Message (specific details or main ideas you want to communicate), 5) Tone/Style (e.g., Professional, Friendly, Polite), 6) Additional Info (e.g., deadlines, context, or any special requests). Once you provide these, we’ll generate a tailored email template for you.
+                            """
+                        },
+                        {
+                            "role": "user",
+                            "content": f"  Give email template for {request.email_info}.",
+                        }
+                    ],
+                    "max_tokens": 5000,
+                    "temperature": 0.7,
+                    "stream": False,
+                    # "stream": True
+
+                }
+
+                # Call the Gemini API
+                response = requests.post(
+                    initializ_url, headers=headers, json=data)
+                if response.status_code == 200:
+                    print("Response Status: 200 OK")
+                else:
+                    print(f"Error: {response.status_code}")
+                    # Print the raw content of the error response
+                    print("Error Response Content:")
+                    print(response.text)
+
+                # Streaming response generator
+                async def event_generator():
+                    for chunk in response.iter_lines(decode_unicode=True):
+                        if chunk:
+                            yield f"{chunk.strip()}\n\n"
+                            await asyncio.sleep(1)
+                return StreamingResponse(event_generator(), media_type="text/event-stream")
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+    
 if __name__ == "__main__":
     if check_mongo_connection():
         import uvicorn
