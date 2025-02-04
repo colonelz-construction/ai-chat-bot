@@ -51,7 +51,7 @@ class QueryRequest(BaseModel):
     
     
 class mailRequest(BaseModel):
-    email_info: str
+    question: str
         
     
 
@@ -677,7 +677,7 @@ async def mail_gen(request: mailRequest):
                         },
                         {
                             "role": "user",
-                            "content": f"  Give email template for {request.email_info}.",
+                            "content": f"  Give email template for {request.question}.",
                         }
                     ],
                     "max_tokens": 5000,
