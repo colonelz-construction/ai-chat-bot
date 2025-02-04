@@ -683,7 +683,7 @@ async def mail_gen(request: mailRequest):
                     "max_tokens": 5000,
                     "temperature": 0.7,
                     "stream": False,
-                    "stream": True
+                    # "stream": True
 
                 }
 
