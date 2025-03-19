@@ -1,8 +1,9 @@
 import os
 import re
 import requests
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI,UploadFile, HTTPException,Form, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse
 import asyncio
 from pymongo import MongoClient
 from pydantic import BaseModel
@@ -11,6 +12,9 @@ from bson import ObjectId
 from dotenv import load_dotenv
 from pymongo.errors import ConnectionFailure
 import pymongo
+import fitz  # PyMuPDF
+import io
+from typing import Optional
 
 load_dotenv()
 
@@ -53,7 +57,8 @@ class QueryRequest(BaseModel):
 class mailRequest(BaseModel):
     question: str
         
-    
+class SummaryRequest(BaseModel):
+    question: str    
 
 
 app = FastAPI()
@@ -563,7 +568,7 @@ async def query_rag_system(request: QueryRequest):
 
         # Prepare the request to the Gemini API
         # gemini_url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent'
-        initializ_url = 'https://colonelz.prod.devai.initz.run/initializ/v1/ai/chat'
+        initializ_url = 'https://colonelz.prod.devai.initz.run/v1/chat/completions'
         headers = {
             'Content-Type': 'application/json',
             'Authorization': f'Bearer {TOKEN}'
@@ -659,8 +664,8 @@ def check_mongo_connection():
 async def mail_gen(request: mailRequest):
     try:
     
-    # Your code here
-                initializ_url = 'https://colonelz.prod.devai.initz.run/initializ/v1/ai/chat'
+
+                initializ_url = 'https://colonelz.prod.devai.initz.run/v1/chat/completions'
                 headers = {
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {TOKEN}'
@@ -709,6 +714,110 @@ async def mail_gen(request: mailRequest):
         print(f"Error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
     
+  
+  
+    
+CHUNK_SIZE = 50000  # 50,000 characters per chunk
+
+def extract_text_from_pdf(file):
+    """Extract text from a PDF file using PyMuPDF."""
+    text = ""
+    try:
+        pdf_document = fitz.open(stream=file, filetype="pdf")
+        for page_num in range(len(pdf_document)):
+            page = pdf_document.load_page(page_num)
+            text += page.get_text()
+        pdf_document.close()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract text: {e}")
+    
+    return text
+
+
+async def summarize_text(text, question):
+    """Send text to the AI model for summarization."""
+    # Split text into chunks
+    chunks = [text[i:i + CHUNK_SIZE] for i in range(0, len(text), CHUNK_SIZE)]
+
+    initializ_url = 'https://colonelz.prod.devai.initz.run/v1/chat/completions'
+    headers = {
+        'Content-Type': 'application/json',
+        'Authorization': f'Bearer {TOKEN}'
+    }
+
+    summaries = []
+    for i, chunk in enumerate(chunks):
+        if question:
+            data = {
+                "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful AI assistant designed to summarize PDF content and give answer according to question."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Summarize the following PDF content \n{chunk} and give answer according to {question}."
+                    }
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.7,
+                "stream": False
+            }
+        else:    
+            data = {
+                "model": "meta-llama/Meta-Llama-3.1-8B-Instruct",
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a helpful AI assistant designed to summarize PDF content."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Summarize the following PDF content:\n{chunk}"
+                    }
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.7,
+                "stream": False
+            }
+
+        response = requests.post(initializ_url, headers=headers, json=data)
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=response.status_code,
+                detail=f"API Error: {response.text}"
+            )
+
+        result = response.json()
+        summary = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        if summary:
+            summaries.append(f"Chunk {i + 1}:\n{summary.strip()}")
+
+    # Combine all summaries into a single response
+    final_summary = "\n\n".join(summaries)
+    return final_summary
+
+
+@app.post("/summary")
+async def blueprint_summary(file: UploadFile, question: Optional[str] = Form(...)):
+    try:
+        # Read the uploaded file
+        content = await file.read()
+        text = extract_text_from_pdf(content)
+
+        if not text.strip():
+            raise HTTPException(status_code=400, detail="No readable text found in PDF.")
+
+        # Summarize the extracted text
+        summary = await summarize_text(text, question)
+
+        return JSONResponse(content={"summary": summary})
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+      
+        
 if __name__ == "__main__":
     if check_mongo_connection():
         import uvicorn
